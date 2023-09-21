@@ -4,19 +4,25 @@ import { LinkButton } from '../lib/link-button'
 import { Row } from '../../ui/lib/row'
 import { Select } from '../lib/select'
 import { Shell, parse as parseShell } from '../../lib/shells'
-import { suggestedExternalEditor } from '../../lib/editors/shared'
+import { FoundEditor, suggestedExternalEditor } from '../../lib/editors/shared'
+import { TextBox } from '../lib/text-box'
+import { Button } from '../lib/button'
+import { Checkbox, CheckboxValue } from '../lib/checkbox'
 
 interface IIntegrationsPreferencesProps {
   readonly availableEditors: ReadonlyArray<string>
   readonly selectedExternalEditor: string | null
+  readonly externalCustomEditors: FoundEditor[]
   readonly availableShells: ReadonlyArray<Shell>
   readonly selectedShell: Shell
   readonly onSelectedEditorChanged: (editor: string) => void
   readonly onSelectedShellChanged: (shell: Shell) => void
+  readonly onExternalCustomEditorsChanged: (externalCustomEditors: FoundEditor[]) => void
 }
 
 interface IIntegrationsPreferencesState {
   readonly selectedExternalEditor: string | null
+  readonly externalCustomEditors: FoundEditor[]
   readonly selectedShell: Shell
 }
 
@@ -29,6 +35,7 @@ export class Integrations extends React.Component<
 
     this.state = {
       selectedExternalEditor: this.props.selectedExternalEditor,
+      externalCustomEditors: this.props.externalCustomEditors,
       selectedShell: this.props.selectedShell,
     }
   }
@@ -58,9 +65,12 @@ export class Integrations extends React.Component<
       }
     }
 
+    const externalCustomEditors = nextProps.externalCustomEditors
+
     this.setState({
       selectedExternalEditor,
       selectedShell,
+      externalCustomEditors
     })
   }
 
@@ -80,6 +90,28 @@ export class Integrations extends React.Component<
     const value = parseShell(event.currentTarget.value)
     this.setState({ selectedShell: value })
     this.props.onSelectedShellChanged(value)
+  }
+
+  private onExternalCustomEditorsChanged = (
+    editors: FoundEditor[]
+  ) => {
+    editors = editors.filter(editor => editor.editor.length > 0)
+    this.setState({ externalCustomEditors: editors })
+    this.props.onExternalCustomEditorsChanged(editors)
+  }
+
+  private onExternalCustomEditorChanged = (
+    knownId: number,
+    editor: FoundEditor
+  ) => {
+    this.onExternalCustomEditorsChanged(
+      this.state.externalCustomEditors.map((original, id) => {
+        if (id !== knownId) {
+          return original
+        }
+        return editor
+      })
+    )
   }
 
   private renderExternalEditor() {
@@ -120,6 +152,60 @@ export class Integrations extends React.Component<
       </Select>
     )
   }
+
+  private renderExternalCustomEditors() {
+    const label = __DARWIN__ ? 'External Custom Editors' : 'External custom editors'
+    
+    // the horror
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <h3>{label}</h3>
+        <table>
+          <thead>
+            <tr>
+              <td>Name</td>
+              <td>Path</td>
+              <td>Terminal</td>
+            </tr>
+          </thead>
+          <tbody>
+            {this.props.externalCustomEditors.map((editor, id) => {
+              return (
+                <tr>
+                  <td>
+                    <TextBox
+                      value={editor.editor}
+                      onValueChanged={(name) => this.onExternalCustomEditorChanged(id, { ...editor, editor: name }) }
+                    />
+                  </td>
+                  <td>
+                    <TextBox
+                      value={editor.path}
+                      onValueChanged={(path) => this.onExternalCustomEditorChanged(id, { ...editor, path })}
+                    />
+                  </td>
+                  <td>
+                    <Checkbox
+                      value={editor.usesShell ? CheckboxValue.On : CheckboxValue.Off}
+                      onChange={() => this.onExternalCustomEditorChanged(id, { ...editor, usesShell: !editor.usesShell ? true : undefined }) }
+                    />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        
+        <Row>
+          <Button onClick={ () => this.onExternalCustomEditorsChanged([
+            ...this.props.externalCustomEditors,
+            { editor: 'An editor', path: '/path/to/editor/bin' }
+          ]) }>Add</Button>
+        </Row>
+      </div>
+    )
+  }
+
   private renderSelectedShell() {
     const options = this.props.availableShells
 
@@ -143,6 +229,7 @@ export class Integrations extends React.Component<
       <DialogContent>
         <h2>Applications</h2>
         <Row>{this.renderExternalEditor()}</Row>
+        <Row>{this.renderExternalCustomEditors()}</Row>
         <Row>{this.renderSelectedShell()}</Row>
       </DialogContent>
     )

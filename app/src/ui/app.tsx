@@ -1615,6 +1615,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             confirmUndoCommit={this.state.askForConfirmationOnUndoCommit}
             uncommittedChangesStrategy={this.state.uncommittedChangesStrategy}
             selectedExternalEditor={this.state.selectedExternalEditor}
+            externalCustomEditors={this.state.externalCustomEditors}
             useWindowsOpenSSH={this.state.useWindowsOpenSSH}
             showCommitLengthWarning={this.state.showCommitLengthWarning}
             notificationsEnabled={this.state.notificationsEnabled}

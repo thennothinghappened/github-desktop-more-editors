@@ -10,26 +10,28 @@ let editorCache: ReadonlyArray<IFoundEditor<string>> | null = null
  * Resolve a list of installed editors on the user's machine, using the known
  * install identifiers that each OS supports.
  */
-export async function getAvailableEditors(): Promise<
+export async function getAvailableEditors(
+    customEditors: IFoundEditor<string>[]
+): Promise<
   ReadonlyArray<IFoundEditor<string>>
 > {
   if (editorCache && editorCache.length > 0) {
-    return editorCache
+    return [...editorCache, ...customEditors]
   }
 
   if (__DARWIN__) {
     editorCache = await getAvailableEditorsDarwin()
-    return editorCache
+    return [...editorCache, ...customEditors]
   }
 
   if (__WIN32__) {
     editorCache = await getAvailableEditorsWindows()
-    return editorCache
+    return [...editorCache, ...customEditors]
   }
 
   if (__LINUX__) {
     editorCache = await getAvailableEditorsLinux()
-    return editorCache
+    return [...editorCache, ...customEditors]
   }
 
   log.warn(
@@ -47,9 +49,10 @@ export async function getAvailableEditors(): Promise<
  * be found (i.e. it has been removed).
  */
 export async function findEditorOrDefault(
-  name: string | null
+  name: string | null,
+  customEditors: IFoundEditor<string>[]
 ): Promise<IFoundEditor<string> | null> {
-  const editors = await getAvailableEditors()
+  const editors = await getAvailableEditors(customEditors)
   if (editors.length === 0) {
     return null
   }

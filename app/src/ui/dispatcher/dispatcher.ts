@@ -124,6 +124,7 @@ import { ICombinedRefCheck, IRefCheck } from '../../lib/ci-checks/ci-checks'
 import { ValidNotificationPullRequestReviewState } from '../../lib/valid-notification-pull-request-review'
 import { UnreachableCommitsTab } from '../history/unreachable-commits-dialog'
 import { sendNonFatalException } from '../../lib/helpers/non-fatal-exception'
+import { FoundEditor } from '../../lib/editors/shared'
 
 /**
  * An error handler function.
@@ -1968,6 +1969,16 @@ export class Dispatcher {
    */
   public setExternalEditor(editor: string): Promise<void> {
     return this.appStore._setExternalEditor(editor)
+  }
+
+  /**
+   * Sets the user's added external editors
+   *
+   * These are editors that have been added via the "External custom editors"
+   * menu setting, appended to the editors dropdown.
+   */
+  public setExternalCustomEditors(externalCustomEditors: FoundEditor[]): Promise<void> {
+    return this.appStore._setExternalCustomEditors(externalCustomEditors)
   }
 
   /**

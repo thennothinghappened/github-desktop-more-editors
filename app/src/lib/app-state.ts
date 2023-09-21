@@ -48,6 +48,7 @@ import { IChangesetData } from './git'
 import { Popup } from '../models/popup'
 import { RepoRulesInfo } from '../models/repo-rules'
 import { IAPIRepoRuleset } from './api'
+import { FoundEditor } from './editors/shared'
 
 export enum SelectionType {
   Repository,
@@ -262,6 +263,9 @@ export interface IAppState {
 
   /** The user's preferred shell. */
   readonly selectedShell: Shell
+
+  /** Custom used-added editor list */
+  readonly externalCustomEditors: FoundEditor[]
 
   /** The current repository filter text. */
   readonly repositoryFilterText: string

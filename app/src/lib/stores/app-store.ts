@@ -229,7 +229,7 @@ import {
   setObject,
   getFloatNumber,
 } from '../local-storage'
-import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
+import { ExternalEditorError, FoundEditor, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import {
   updateChangedFiles,
@@ -372,6 +372,7 @@ const confirmUndoCommitKey: string = 'confirmUndoCommit'
 const uncommittedChangesStrategyKey = 'uncommittedChangesStrategyKind'
 
 const externalEditorKey: string = 'externalEditor'
+const externalCustomEditorsKey: string = 'externalCustomEditors'
 
 const imageDiffTypeDefault = ImageDiffType.TwoUp
 const imageDiffTypeKey = 'image-diff-type'
@@ -494,6 +495,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private selectedExternalEditor: string | null = null
 
   private resolvedExternalEditor: string | null = null
+
+  private externalCustomEditors: FoundEditor[] = []
 
   /** The user's preferred shell. */
   private selectedShell = DefaultShell
@@ -990,6 +993,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       hideWhitespaceInPullRequestDiff: this.hideWhitespaceInPullRequestDiff,
       showSideBySideDiff: this.showSideBySideDiff,
       selectedShell: this.selectedShell,
+      externalCustomEditors: this.externalCustomEditors,
       repositoryFilterText: this.repositoryFilterText,
       resolvedExternalEditor: this.resolvedExternalEditor,
       selectedCloneRepositoryTab: this.selectedCloneRepositoryTab,
@@ -2144,6 +2148,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       getEnum(uncommittedChangesStrategyKey, UncommittedChangesStrategy) ??
       defaultUncommittedChangesStrategy
 
+    this.updateExternalCustomEditors(
+      this.lookupExternalCustomEditors()
+    ).catch(e => log.error('Failed resolving custom editors at startup', e))
+
     this.updateSelectedExternalEditor(
       await this.lookupSelectedExternalEditor()
     ).catch(e => log.error('Failed resolving current editor at startup', e))
@@ -2284,8 +2292,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return this._resolveCurrentEditor()
   }
 
+  private async updateExternalCustomEditors(
+    externalCustomEditors: FoundEditor[]
+  ): Promise<void> {
+    this.externalCustomEditors = externalCustomEditors
+    
+    await this._resolveCurrentEditor()
+    return await this._resolveExternalCustomEditors()
+  }
+
   private async lookupSelectedExternalEditor(): Promise<string | null> {
-    const editors = (await getAvailableEditors()).map(found => found.editor)
+    const editors = (await getAvailableEditors(this.externalCustomEditors)).map(found => found.editor)
 
     const value = localStorage.getItem(externalEditorKey)
     // ensure editor is still installed
@@ -2301,6 +2318,18 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     return null
+  }
+
+  private lookupExternalCustomEditors(): FoundEditor[] {
+    const value = localStorage.getItem(externalCustomEditorsKey)
+    
+    if (!value) {
+      const editors: FoundEditor[] = []
+      localStorage.setItem(externalCustomEditorsKey, editors.toString())
+      return editors
+    }
+
+    return JSON.parse(value)
   }
 
   /**
@@ -5398,7 +5427,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const { selectedExternalEditor } = this.getState()
 
     try {
-      const match = await findEditorOrDefault(selectedExternalEditor)
+      const match = await findEditorOrDefault(selectedExternalEditor, this.externalCustomEditors)
       if (match === null) {
         this.emitError(
           new ExternalEditorError(
@@ -5534,6 +5563,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.updateMenuLabelsForSelectedRepository()
     return promise
+  }
+
+  public async _setExternalCustomEditors(externalCustomEditors: FoundEditor[]) {
+    this.updateExternalCustomEditors(externalCustomEditors)
+    localStorage.setItem(externalCustomEditorsKey, JSON.stringify(externalCustomEditors))
+    this.emitUpdate()
   }
 
   public _setShell(shell: Shell): Promise<void> {
@@ -6498,7 +6533,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   public async _resolveCurrentEditor() {
-    const match = await findEditorOrDefault(this.selectedExternalEditor)
+    const match = await findEditorOrDefault(this.selectedExternalEditor, this.externalCustomEditors)
     const resolvedExternalEditor = match != null ? match.editor : null
     if (this.resolvedExternalEditor !== resolvedExternalEditor) {
       this.resolvedExternalEditor = resolvedExternalEditor
@@ -6511,6 +6546,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
         }
       }
 
+      this.emitUpdate()
+    }
+  }
+
+  public async _resolveExternalCustomEditors() {
+    const editors = this.lookupExternalCustomEditors()
+    // this is all very dirty and gross and slow since its just a hack to solve
+    // a specific problem i have
+    if (JSON.stringify(editors) !== JSON.stringify(this.externalCustomEditors)) {
+      this.externalCustomEditors = editors
       this.emitUpdate()
     }
   }

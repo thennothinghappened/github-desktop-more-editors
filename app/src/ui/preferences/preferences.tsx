@@ -41,6 +41,7 @@ import {
 import { Prompts } from './prompts'
 import { Repository } from '../../models/repository'
 import { Notifications } from './notifications'
+import { FoundEditor } from '../../lib/editors/shared'
 
 interface IPreferencesProps {
   readonly dispatcher: Dispatcher
@@ -62,6 +63,7 @@ interface IPreferencesProps {
   readonly confirmUndoCommit: boolean
   readonly uncommittedChangesStrategy: UncommittedChangesStrategy
   readonly selectedExternalEditor: string | null
+  readonly externalCustomEditors: FoundEditor[]
   readonly selectedShell: Shell
   readonly selectedTheme: ApplicationTheme
   readonly repositoryIndicatorsEnabled: boolean
@@ -90,6 +92,7 @@ interface IPreferencesState {
   readonly uncommittedChangesStrategy: UncommittedChangesStrategy
   readonly availableEditors: ReadonlyArray<string>
   readonly selectedExternalEditor: string | null
+  readonly externalCustomEditors: FoundEditor[]
   readonly availableShells: ReadonlyArray<Shell>
   readonly selectedShell: Shell
   /**
@@ -138,6 +141,7 @@ export class Preferences extends React.Component<
       confirmUndoCommit: false,
       uncommittedChangesStrategy: defaultUncommittedChangesStrategy,
       selectedExternalEditor: this.props.selectedExternalEditor,
+      externalCustomEditors: this.props.externalCustomEditors,
       availableShells: [],
       selectedShell: this.props.selectedShell,
       repositoryIndicatorsEnabled: this.props.repositoryIndicatorsEnabled,
@@ -172,7 +176,7 @@ export class Preferences extends React.Component<
     committerEmail = committerEmail || ''
 
     const [editors, shells] = await Promise.all([
-      getAvailableEditors(),
+      getAvailableEditors(this.state.externalCustomEditors),
       getAvailableShells(),
     ])
 
@@ -307,6 +311,8 @@ export class Preferences extends React.Component<
         View = (
           <Integrations
             availableEditors={this.state.availableEditors}
+            externalCustomEditors={this.state.externalCustomEditors}
+            onExternalCustomEditorsChanged={this.onExternalCustomEditorsChanged}
             selectedExternalEditor={this.state.selectedExternalEditor}
             onSelectedEditorChanged={this.onSelectedEditorChanged}
             availableShells={this.state.availableShells}
@@ -507,6 +513,11 @@ export class Preferences extends React.Component<
     this.setState({ selectedExternalEditor: editor })
   }
 
+  private onExternalCustomEditorsChanged = async (externalCustomEditors: FoundEditor[]) => {
+    const availableEditors = (await getAvailableEditors(externalCustomEditors)).map(e => e.editor)
+    this.setState({ externalCustomEditors, availableEditors })
+  }
+
   private onSelectedShellChanged = (shell: Shell) => {
     this.setState({ selectedShell: shell })
   }
@@ -617,6 +628,12 @@ export class Preferences extends React.Component<
     await this.props.dispatcher.setConfirmUndoCommitSetting(
       this.state.confirmUndoCommit
     )
+
+    if (this.state.externalCustomEditors) {
+      await this.props.dispatcher.setExternalCustomEditors(
+        this.state.externalCustomEditors
+      )
+    }
 
     if (this.state.selectedExternalEditor) {
       await this.props.dispatcher.setExternalEditor(
